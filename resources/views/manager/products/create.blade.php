@@ -31,7 +31,7 @@
         <div class="card">
             <h1>Thêm Sản Phẩm Mới</h1>
             
-            <form action="{{ route('products.store') }}" method="POST">
+            <form action="{{ route('manager.products.store') }}" method="POST">
                 @csrf
                 
                 <div class="form-group">

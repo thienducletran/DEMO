@@ -11,6 +11,16 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    public function index()
+    {
+        $store = Auth::user()->store;
+        if (!$store || $store->status !== 'approved') {
+            return redirect()->route('manager.dashboard')->with('error', 'Gian hàng chưa được duyệt hoặc chưa đăng ký.');
+        }
+        $products = Product::where('store_id', $store->id)->latest()->paginate(10);
+        return view('manager.products.index', compact('products', 'store'));
+    }
+
     public function create()
     {
         $categories = Category::all();
@@ -89,6 +99,11 @@ class ProductController extends Controller
         }
         
         $product->delete();
+
+        if (request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success' => true, 'message' => 'Đã xóa sản phẩm!']);
+        }
+        
         return redirect()->route('manager.dashboard')->with('success', 'Đã xóa sản phẩm!');
     }
 }

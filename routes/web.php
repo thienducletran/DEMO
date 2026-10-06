@@ -71,13 +71,62 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->group(function () {
     Route::resource('claims', \App\Http\Controllers\Admin\ClaimController::class)->only(['index', 'update']);
 });
 
-Route::middleware(['auth', 'role:manager'])->prefix('manager')->group(function () {
+Route::middleware(['auth', 'role:manager'])->prefix('manager')->name('manager.')->group(function () {
     Route::get('/', function () {
         $store = \Illuminate\Support\Facades\Auth::user()->store;
-        return view('manager.dashboard', compact('store'));
-    })->name('manager.dashboard');
+        
+        $totalRevenue = 0;
+        $totalOrders = 0;
+        $totalCustomers = 0;
+        $topProducts = collect();
+        $revenueData = [0,0,0,0,0,0,0];
+
+        if ($store) {
+            $totalOrders = \App\Models\OrderItem::whereHas('product', function($q) use ($store) {
+                $q->where('store_id', $store->id);
+            })->distinct('order_id')->count('order_id');
+
+            $totalRevenue = \App\Models\OrderItem::whereHas('product', function($q) use ($store) {
+                $q->where('store_id', $store->id);
+            })->whereHas('order', function($q) {
+                $q->where('status', '!=', 'cancelled');
+            })->sum(\Illuminate\Support\Facades\DB::raw('price * quantity'));
+
+            $totalCustomers = \App\Models\Order::whereHas('items.product', function($q) use ($store) {
+                $q->where('store_id', $store->id);
+            })->distinct('user_id')->count('user_id');
+
+            $topProducts = \App\Models\Product::where('store_id', $store->id)
+                ->withSum('orderItems', 'quantity')
+                ->orderByDesc('order_items_sum_quantity')
+                ->take(5)
+                ->get();
+                
+            for ($i = 6; $i >= 0; $i--) {
+                $month = now()->subMonths($i)->format('m');
+                $year = now()->subMonths($i)->format('Y');
+                $sum = \App\Models\OrderItem::whereHas('product', function($q) use ($store) {
+                    $q->where('store_id', $store->id);
+                })->whereHas('order', function($q) use ($month, $year) {
+                    $q->whereMonth('created_at', $month)->whereYear('created_at', $year)->where('status', '!=', 'cancelled');
+                })->sum(\Illuminate\Support\Facades\DB::raw('price * quantity'));
+                $revenueData[6-$i] = (float) $sum;
+            }
+        }
+
+        return view('manager.dashboard', compact('store', 'totalRevenue', 'totalOrders', 'totalCustomers', 'topProducts', 'revenueData'));
+    })->name('dashboard');
     
-    Route::resource('products', \App\Http\Controllers\Manager\ProductController::class)->except(['index', 'show']);
+    Route::resource('products', \App\Http\Controllers\Manager\ProductController::class)->except(['show']);
+    
+    // Placeholder routes for sidebar
+    Route::get('/store', function () { return view('manager.placeholder', ['title' => 'Quản lý Gian hàng']); })->name('store');
+    Route::get('/orders', function () { return view('manager.placeholder', ['title' => 'Quản lý Đơn hàng']); })->name('orders');
+    Route::get('/inventory', function () { return view('manager.placeholder', ['title' => 'Quản lý Kho hàng']); })->name('inventory');
+    Route::get('/revenue', function () { return view('manager.placeholder', ['title' => 'Quản lý Doanh thu']); })->name('revenue');
+    Route::get('/promotions', function () { return view('manager.placeholder', ['title' => 'Quản lý Khuyến mãi']); })->name('promotions');
+    Route::get('/reviews', function () { return view('manager.placeholder', ['title' => 'Quản lý Đánh giá']); })->name('reviews');
+    Route::get('/notifications', function () { return view('manager.placeholder', ['title' => 'Thông báo']); })->name('notifications');
 });
 
 
