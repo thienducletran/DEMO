@@ -32,7 +32,7 @@
         <div class="card">
             <h1>Sửa Sản Phẩm: {{ $product->name }}</h1>
             
-            <form action="{{ route('products.update', $product->id) }}" method="POST">
+            <form action="{{ route('manager.products.update', $product->id) }}" method="POST">
                 @csrf
                 @method('PUT')
                 
